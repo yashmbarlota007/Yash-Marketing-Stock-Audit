@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Yash Marketing - Audit OS</title>
+  <style>
+    :root { --primary: #0f172a; --accent: #2563eb; --bg: #f1f5f9; --text: #0f172a; --card: #ffffff; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; padding: 15px; display: flex; justify-content: center; }
+    .container { background: var(--card); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgb(0 0 0 / 0.1); width: 100%; max-width: 450px; }
+    h2, h3 { text-align: center; color: var(--primary); margin-top: 0; }
+    input[type="text"], input[type="password"] { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+    button { width: 100%; padding: 14px; background: var(--primary); color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; margin-top: 10px; }
+    .btn-accent { background: var(--accent); }
+    .btn-danger { background: #ef4444; }
+    .hidden { display: none; }
+    .scan-list { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; max-height: 250px; overflow-y: auto; margin-bottom: 15px; font-size: 14px; }
+    .scan-item { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #cbd5e1; padding: 8px 0; }
+    .target-box { background: #dbeafe; border-left: 4px solid #2563eb; padding: 10px; margin-bottom: 15px; border-radius: 4px; font-weight: bold; text-align: center; color: #1e3a8a; }
+    .status-msg { text-align: center; margin-top: 10px; font-weight: bold; font-size: 14px; }
+    
+    .camera-btn { display: block; background: #0f172a; color: white; padding: 18px; text-align: center; border-radius: 8px; font-weight: bold; cursor: pointer; margin-bottom: 15px; font-size: 18px; box-shadow: 0 4px 6px rgb(0 0 0 / 0.2); }
+    .camera-btn:active { background: #1e293b; }
+  </style>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+</head>
+<body>
+
+  <!-- LOGIN TERMINAL -->
+  <div id="loginSection" class="container">
+    <h2>Yash Marketing - OS</h2>
+    <input type="text" id="empId" placeholder="Employee ID">
+    <input type="password" id="empPass" placeholder="PIN">
+    <button class="btn-accent" onclick="doLogin()">Secure Login</button>
+    <div id="loginMsg" class="status-msg" style="color: #ef4444;"></div>
+  </div>
+
+  <!-- AUDIT TERMINAL -->
+  <div id="auditSection" class="container hidden">
+    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+      <span id="userBadge" style="font-weight: bold;"></span>
+      <span style="font-size: 12px; background: #e2e8f0; padding: 4px 8px; border-radius: 20px;">Live Sync Mode</span>
+    </div>
+
+    <div id="targetBox" class="target-box">Fetching target...</div>
+
+    <div id="reader" style="width: 100%; border-radius: 8px; overflow: hidden; margin-bottom: 15px; border: 2px solid #e2e8f0;"></div>
+    
+    <button id="startScanBtn" class="camera-btn" onclick="startLiveScanner()">📷 Start Live Scanner</button>
+    <button id="stopScanBtn" class="btn-danger hidden" onclick="stopLiveScanner()" style="margin-bottom: 15px;">🛑 Stop Camera</button>
+    
+    <div id="actionMsg" class="status-msg">Camera off. Start scanner to begin.</div>
+
+    <h3>Scanned Items (Live)</h3>
+    <div class="scan-list" id="scanList">
+      <div style="text-align:center; color:#64748b;">Waiting for first scan...</div>
+    </div>
+    
+    <hr style="margin: 20px 0; border: 0; border-top: 1px solid #e2e8f0;">
+    <button class="btn-danger" onclick="finishAudit()">Submit Report to Boss</button>
+  </div>
+
+  <script>
+    // ==========================================
+    // 🔗 API CONNECTION (PASTE YOUR NEW WEB APP URL HERE)
+    // ==========================================
+    const API_URL = "https://script.google.com/macros/s/AKfycbyOXRMn9g6L3Vcy5JKbVYUUdR7svaz9gzDrbut2qk_7afP73Ks6AetA0fpCdunYAAoJQg/exec";
+
+    let currentUser = "";
+    let localScans = {}; 
+    let audioCtx;
+    let html5QrCode;
+    let lastScannedText = "";
+    let lastScanTime = 0;
+
+    // --- API COMMUNICATION BRIDGE ---
+    async function callAPI(payload) {
+      try {
+        const response = await fetch(API_URL, {
+          method: 'POST',
+          // Using text/plain prevents strict CORS preflight issues with Google Apps Script
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' }, 
+          body: JSON.stringify(payload),
+          redirect: "follow"
+        });
+        return await response.json();
+      } catch (error) {
+        console.error("API Error:", error);
+        return { success: false, message: "Network connection failed." };
+      }
+    }
+
+    // --- LOGIC ---
+    async function doLogin() {
+      const id = document.getElementById('empId').value;
+      const pass = document.getElementById('empPass').value;
+      document.getElementById('loginMsg').innerText = "Authenticating via API...";
+      
+      const res = await callAPI({ action: "authenticate", empId: id, password: pass });
+      
+      if(res.success) {
+        currentUser = res.name;
+        document.getElementById('loginSection').classList.add('hidden');
+        document.getElementById('auditSection').classList.remove('hidden');
+        document.getElementById('userBadge').innerText = `👤 ${res.name}`;
+        
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        fetchSchedule();
+      } else {
+        document.getElementById('loginMsg').innerText = res.message;
+      }
+    }
+
+    async function fetchSchedule() {
+      const res = await callAPI({ action: "getSchedule" });
+      if(res.success) {
+        document.getElementById('targetBox').innerHTML = `🎯 Target for ${res.day}: <br><span style="font-size:18px;">${res.brand}</span>`;
+      }
+    }
+
+    function playBeep() {
+      if(!audioCtx) return;
+      const oscillator = audioCtx.createOscillator();
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(800, audioCtx.currentTime); 
+      oscillator.connect(audioCtx.destination);
+      oscillator.start();
+      setTimeout(() => oscillator.stop(), 150);
+    }
+
+    function startLiveScanner() {
+      document.getElementById('actionMsg').innerHTML = "<span style='color:#2563eb;'>Requesting Camera Permission... ⏳</span>";
+
+      // GitHub Pages is a top-level domain, so this permission prompt will work flawlessly.
+      Html5Qrcode.getCameras().then(devices => {
+        if (devices && devices.length) {
+          if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
+          
+          document.getElementById('startScanBtn').classList.add('hidden');
+          document.getElementById('stopScanBtn').classList.remove('hidden');
+          document.getElementById('actionMsg').innerHTML = "<span style='color:#10b981;'>Camera Active. Point at Barcode...</span>";
+
+          html5QrCode.start(
+            { facingMode: "environment" }, 
+            { fps: 10, qrbox: { width: 250, height: 100 } },
+            (decodedText, decodedResult) => {
+              let currentTime = new Date().getTime();
+              if (decodedText === lastScannedText && (currentTime - lastScanTime) < 3000) return; 
+              lastScannedText = decodedText; lastScanTime = currentTime;
+              playBeep();
+              processScannedBarcode(decodedText);
+            },
+            (errorMessage) => {}
+          ).catch(err => {
+            document.getElementById('actionMsg').innerHTML = `<span style="color:#ef4444;">Scanner Error: ${err}</span>`;
+          });
+        }
+      }).catch(err => {
+        document.getElementById('actionMsg').innerHTML = `<span style="color:#ef4444;">❌ Permission Denied! Please allow camera access.</span>`;
+      });
+    }
+
+    function stopLiveScanner() {
+      if (html5QrCode) {
+        html5QrCode.stop().then(() => {
+          document.getElementById('startScanBtn').classList.remove('hidden');
+          document.getElementById('stopScanBtn').classList.add('hidden');
+          document.getElementById('actionMsg').innerHTML = "Camera stopped.";
+        });
+      }
+    }
+
+    async function processScannedBarcode(decodedText) {
+      document.getElementById('actionMsg').innerHTML = `<span style='color:#f59e0b;'>Syncing ${decodedText} via API... ⏳</span>`;
+      
+      const res = await callAPI({ action: "submitLiveScan", barcode: decodedText, userName: currentUser });
+      
+      if(res.success) {
+        let displayName = res.brand + " " + res.itemName;
+        if(res.itemName === "Unknown Item") displayName = res.barcode;
+        
+        if(localScans[res.barcode]) localScans[res.barcode].qty += 1;
+        else localScans[res.barcode] = { qty: 1, name: displayName };
+        
+        updateUIList();
+        document.getElementById('actionMsg').innerHTML = `✅ Synced: <b style="color:#10b981">${res.itemName}</b>`;
+      }
+    }
+
+    function updateUIList() {
+      const listDiv = document.getElementById('scanList');
+      listDiv.innerHTML = "";
+      for (const [barcode, data] of Object.entries(localScans)) {
+        listDiv.innerHTML = `<div class="scan-item">
+          <span style="font-size: 13px;">📦 ${data.name}</span>
+          <span style="font-weight:bold; color:#10b981; margin-left: 10px;">Qty: ${data.qty}</span>
+        </div>` + listDiv.innerHTML; 
+      }
+    }
+
+    async function finishAudit() {
+      if(!confirm("End audit and fire mismatch report to Boss on WhatsApp?")) return;
+      if (html5QrCode) html5QrCode.stop().catch(e => console.log("Stopped"));
+      
+      document.getElementById('actionMsg').innerHTML = `<span style="color:#3b82f6;">Processing Server Report...</span>`;
+      
+      const res = await callAPI({ action: "generateReport", userName: currentUser });
+      
+      document.getElementById('actionMsg').innerHTML = `<span style="color:#10b981;">${res.message}</span>`;
+      if(res.success) setTimeout(() => { location.reload(); }, 3500); 
+    }
+  </script>
+</body>
+</html>
