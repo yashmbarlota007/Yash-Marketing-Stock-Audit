@@ -201,7 +201,44 @@
         document.getElementById('actionMsg').innerHTML = `✅ Synced: <b style="color:#10b981">${res.itemName}</b>`;
       }
     }
+// ==========================================
+    // HYBRID MODE: HARDWARE SCANNER LISTENER
+    // ==========================================
+    document.addEventListener("DOMContentLoaded", () => {
+      const hwInput = document.getElementById('hardwareScannerInput');
+      
+      if(hwInput) {
+        hwInput.addEventListener('keypress', function (e) {
+          // Hardware scanners automatically send the 'Enter' key after typing the barcode
+          if (e.key === 'Enter') {
+            e.preventDefault(); // Stop the page from refreshing
+            
+            let scannedCode = this.value.trim();
+            
+            if (scannedCode !== "") {
+              playBeep(); // Audio feedback
+              
+              // Send the data to your existing backend system
+              document.getElementById('actionMsg').innerHTML = `<span style='color:#f59e0b;'>Hardware Syncing ${scannedCode}... ⏳</span>`;
+              processScannedBarcode(scannedCode);
+              
+              // Instantly clear the box for the next scan
+              this.value = ""; 
+              
+              // Keep the cursor locked in the box so staff doesn't have to tap it again
+              this.focus(); 
+            }
+          }
+        });
+      }
+    });
 
+    // Auto-focus the hardware scanner box as soon as the user logs in
+    function lockScannerFocus() {
+       setTimeout(() => {
+           document.getElementById('hardwareScannerInput').focus();
+       }, 500);
+    }
     function updateUIList() {
       const listDiv = document.getElementById('scanList');
       listDiv.innerHTML = "";
