@@ -26,7 +26,6 @@
 </head>
 <body>
 
-  <!-- LOGIN TERMINAL -->
   <div id="loginSection" class="container">
     <h2>Yash Marketing - OS</h2>
     <input type="text" id="empId" placeholder="Employee ID">
@@ -35,7 +34,6 @@
     <div id="loginMsg" class="status-msg" style="color: #ef4444;"></div>
   </div>
 
-  <!-- AUDIT TERMINAL -->
   <div id="auditSection" class="container hidden">
     <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
       <span id="userBadge" style="font-weight: bold;"></span>
@@ -51,7 +49,6 @@
     
     <div id="actionMsg" class="status-msg">Camera off. Start scanner to begin.</div>
 
-    <!-- HYBRID MODE: HARDWARE SCANNER INPUT -->
     <div style="margin-top: 15px; margin-bottom: 15px; text-align: center;">
       <label style="font-size: 12px; font-weight: bold; color: #64748b;">Hardware Scanner Ready</label>
       <input type="text" id="hardwareScannerInput" placeholder="Tap here to use Scanner Gun..." style="width: 100%; padding: 15px; border: 2px solid #10b981; border-radius: 8px; font-size: 18px; font-weight: bold; text-align: center; background: #ecfdf5; color: #047857;">
@@ -70,7 +67,7 @@
     // ==========================================
     // 🔗 API CONNECTION (PASTE NEW APP SCRIPT URL HERE)
     // ==========================================
-    const API_URL = "https://script.google.com/macros/s/AKfycbyOXRMn9g6L3Vcy5JKbVYUUdR7svaz9gzDrbut2qk_7afP73Ks6AetA0fpCdunYAAoJQg/exec";
+    const API_URL = "YOUR_NEW_GOOGLE_APP_SCRIPT_URL_HERE";
 
     let currentUser = "";
     let localScans = {}; 
@@ -187,9 +184,8 @@
       }
     }
 
-    // 🚀 UPGRADED: OPTIMISTIC UI FOR ZERO DELAY SCANNING
+    // 🚀 UPGRADED: OPTIMISTIC UI WITH ERROR HANDLING (No infinite "Syncing...")
     function processScannedBarcode(decodedText) {
-      // 1. Instantly update the UI so the staff doesn't wait
       if(localScans[decodedText]) {
         localScans[decodedText].qty += 1;
       } else {
@@ -198,18 +194,27 @@
       updateUIList();
       document.getElementById('actionMsg').innerHTML = `<span style='color:#f59e0b;'>Background Syncing ${decodedText}... 🚀</span>`;
       
-      // 2. Talk to the server in the background
       callAPI({ action: "submitLiveScan", barcode: decodedText, userName: currentUser })
         .then(res => {
           if(res.success) {
             let displayName = res.brand + " " + res.itemName;
             if(res.itemName === "Unknown Item") displayName = res.barcode;
             
-            // 3. Update the UI with the real name once the server replies
-            localScans[res.barcode].name = displayName;
+            localScans[decodedText].name = displayName;
             updateUIList();
             document.getElementById('actionMsg').innerHTML = `✅ Synced: <b style="color:#10b981">${res.itemName}</b>`;
+          } else {
+            // Unlocks UI if backend throws an error
+            localScans[decodedText].name = "❌ Sync Failed";
+            updateUIList();
+            document.getElementById('actionMsg').innerHTML = `<span style='color:#ef4444;'>Server Error: ${res.message}</span>`;
           }
+        })
+        .catch(err => {
+            // Unlocks UI if network completely drops
+            localScans[decodedText].name = "❌ Network Drop";
+            updateUIList();
+            document.getElementById('actionMsg').innerHTML = `<span style='color:#ef4444;'>Connection Lost. Try again.</span>`;
         });
     }
 
