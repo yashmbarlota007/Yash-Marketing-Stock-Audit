@@ -209,6 +209,59 @@
       document.getElementById('actionMsg').innerHTML = `<span style="color:#10b981;">${res.message}</span>`;
       if(res.success) setTimeout(() => { location.reload(); }, 3500); 
     }
+    // ==========================================
+    // AUTO-LOGIN (SSO) RECEIVER ENGINE
+    // ==========================================
+    window.onload = function() {
+      // 1. Check if Master App sent credentials in the URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const ssoId = urlParams.get('empId');
+      const ssoPass = urlParams.get('pass');
+
+      if (ssoId && ssoPass) {
+        // 2. Safely auto-fill the input boxes (Checking common ID names)
+        
+        // Employee ID field check
+        if (document.getElementById('empId')) {
+          document.getElementById('empId').value = ssoId;
+        } else if (document.getElementById('username')) {
+          document.getElementById('username').value = ssoId;
+        }
+
+        // Password field check
+        if (document.getElementById('empPass')) {
+          document.getElementById('empPass').value = ssoPass;
+        } else if (document.getElementById('password')) {
+          document.getElementById('password').value = ssoPass;
+        }
+
+        // 3. Automatically trigger the login function
+        if (typeof doLogin === 'function') {
+          doLogin();
+        } else if (typeof login === 'function') {
+          login();
+        } else if (typeof executeLogin === 'function') {
+          executeLogin();
+        }
+      } 
+      // 4. Fallback: If opened directly (not from Master App), check local storage
+      else {
+        const cachedId = localStorage.getItem('ym_cached_id');
+        const cachedPass = localStorage.getItem('ym_cached_pass');
+        
+        if (cachedId && cachedPass) {
+          if (document.getElementById('empId')) document.getElementById('empId').value = cachedId;
+          else if (document.getElementById('username')) document.getElementById('username').value = cachedId;
+          
+          if (document.getElementById('empPass')) document.getElementById('empPass').value = cachedPass;
+          else if (document.getElementById('password')) document.getElementById('password').value = cachedPass;
+          
+          if (typeof doLogin === 'function') doLogin();
+          else if (typeof login === 'function') login();
+          else if (typeof executeLogin === 'function') executeLogin();
+        }
+      }
+    };
   </script>
 </body>
 </html>
