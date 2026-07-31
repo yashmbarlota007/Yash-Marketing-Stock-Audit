@@ -131,7 +131,6 @@
     function startLiveScanner() {
       document.getElementById('actionMsg').innerHTML = "<span style='color:#2563eb;'>Requesting Camera Permission... ⏳</span>";
 
-      // GitHub Pages is a top-level domain, so this permission prompt will work flawlessly.
       Html5Qrcode.getCameras().then(devices => {
         if (devices && devices.length) {
           if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
@@ -140,9 +139,17 @@
           document.getElementById('stopScanBtn').classList.remove('hidden');
           document.getElementById('actionMsg').innerHTML = "<span style='color:#10b981;'>Camera Active. Point at Barcode...</span>";
 
+          // UPGRADED CONFIGURATION
           html5QrCode.start(
-            { facingMode: "environment" }, 
-            { fps: 10, qrbox: { width: 250, height: 100 } },
+            { 
+              facingMode: "environment", 
+              advanced: [{ focusMode: "continuous" }] // Forces camera to auto-focus continuously
+            }, 
+            { 
+              fps: 15, // Increased from 10 to 15 for faster scanning response
+              qrbox: { width: 260, height: 120 }, // Slightly larger scan area
+              disableFlip: false 
+            },
             (decodedText, decodedResult) => {
               let currentTime = new Date().getTime();
               if (decodedText === lastScannedText && (currentTime - lastScanTime) < 3000) return; 
@@ -159,7 +166,6 @@
         document.getElementById('actionMsg').innerHTML = `<span style="color:#ef4444;">❌ Permission Denied! Please allow camera access.</span>`;
       });
     }
-
     function stopLiveScanner() {
       if (html5QrCode) {
         html5QrCode.stop().then(() => {
