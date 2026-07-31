@@ -141,21 +141,18 @@
           document.getElementById('actionMsg').innerHTML = "<span style='color:#10b981;'>Camera Active. Keep 5 inches away to focus.</span>";
 
           html5QrCode.start(
+            { facingMode: "environment" }, // FIXED: Reverted to a single key to prevent the crash
             { 
-              facingMode: "environment", 
-              advanced: [{ focusMode: "continuous" }] 
-            }, 
-            { 
-              fps: 20, // Increased to 20 frames per second for ultra-fast reading
-              qrbox: { width: 280, height: 100 }, // Optimized aspect ratio for 1D barcodes
-              disableFlip: true, // Stops the engine from scanning upside-down, saving 50% CPU power
+              fps: 20, 
+              qrbox: { width: 280, height: 100 }, 
+              disableFlip: true, 
               formatsToSupport: [ 
                 Html5QrcodeSupportedFormats.CODE_128, 
                 Html5QrcodeSupportedFormats.EAN_13, 
                 Html5QrcodeSupportedFormats.EAN_8,
                 Html5QrcodeSupportedFormats.UPC_A,
                 Html5QrcodeSupportedFormats.CODE_39
-              ] // FORCES software to ignore complex QR codes and instantly lock onto product barcodes
+              ] 
             },
             (decodedText, decodedResult) => {
               let currentTime = new Date().getTime();
