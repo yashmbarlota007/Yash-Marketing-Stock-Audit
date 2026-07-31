@@ -68,9 +68,9 @@
   
   <script>
     // ==========================================
-    // 🔗 API CONNECTION (UPDATE THIS TO YOUR LATEST GOOGLE SCRIPT URL)
+    // 🔗 API CONNECTION (PASTE NEW APP SCRIPT URL HERE)
     // ==========================================
-    const API_URL = "https://script.google.com/macros/s/AKfycbyOXRMn9g6L3Vcy5JKbVYUUdR7svaz9gzDrbut2qk_7afP73Ks6AetA0fpCdunYAAoJQg/exec";
+    const API_URL = "YOUR_NEW_GOOGLE_APP_SCRIPT_URL_HERE";
 
     let currentUser = "";
     let localScans = {}; 
@@ -111,9 +111,7 @@
         
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         fetchSchedule();
-        
-        // 🚀 Auto-lock the cursor into the hardware scanner box
-        lockScannerFocus();
+        lockScannerFocus(); // Auto-focus hardware scanner
       } else {
         document.getElementById('loginMsg').innerText = res.message;
       }
@@ -136,7 +134,7 @@
       setTimeout(() => oscillator.stop(), 150);
     }
 
-    // --- OPTIMIZED MOBILE CAMERA SCANNER ---
+    // --- CRASH-FREE MOBILE CAMERA SCANNER ---
     function startLiveScanner() {
       document.getElementById('actionMsg').innerHTML = "<span style='color:#2563eb;'>Requesting Camera Permission... ⏳</span><br><small>Keep phone 5 inches away from box</small>";
 
@@ -148,7 +146,6 @@
           document.getElementById('stopScanBtn').classList.remove('hidden');
           document.getElementById('actionMsg').innerHTML = "<span style='color:#10b981;'>Camera Active. Keep 5 inches away to focus.</span>";
 
-          // Fixed configuration: 'advanced' removed to prevent crash, format filters added for speed
           html5QrCode.start(
             { facingMode: "environment" }, 
             { 
@@ -190,21 +187,30 @@
       }
     }
 
-    async function processScannedBarcode(decodedText) {
-      document.getElementById('actionMsg').innerHTML = `<span style='color:#f59e0b;'>Syncing ${decodedText} via API... ⏳</span>`;
-      
-      const res = await callAPI({ action: "submitLiveScan", barcode: decodedText, userName: currentUser });
-      
-      if(res.success) {
-        let displayName = res.brand + " " + res.itemName;
-        if(res.itemName === "Unknown Item") displayName = res.barcode;
-        
-        if(localScans[res.barcode]) localScans[res.barcode].qty += 1;
-        else localScans[res.barcode] = { qty: 1, name: displayName };
-        
-        updateUIList();
-        document.getElementById('actionMsg').innerHTML = `✅ Synced: <b style="color:#10b981">${res.itemName}</b>`;
+    // 🚀 UPGRADED: OPTIMISTIC UI FOR ZERO DELAY SCANNING
+    function processScannedBarcode(decodedText) {
+      // 1. Instantly update the UI so the staff doesn't wait
+      if(localScans[decodedText]) {
+        localScans[decodedText].qty += 1;
+      } else {
+        localScans[decodedText] = { qty: 1, name: "Syncing..." }; 
       }
+      updateUIList();
+      document.getElementById('actionMsg').innerHTML = `<span style='color:#f59e0b;'>Background Syncing ${decodedText}... 🚀</span>`;
+      
+      // 2. Talk to the server in the background
+      callAPI({ action: "submitLiveScan", barcode: decodedText, userName: currentUser })
+        .then(res => {
+          if(res.success) {
+            let displayName = res.brand + " " + res.itemName;
+            if(res.itemName === "Unknown Item") displayName = res.barcode;
+            
+            // 3. Update the UI with the real name once the server replies
+            localScans[res.barcode].name = displayName;
+            updateUIList();
+            document.getElementById('actionMsg').innerHTML = `✅ Synced: <b style="color:#10b981">${res.itemName}</b>`;
+          }
+        });
     }
 
     function updateUIList() {
@@ -245,9 +251,7 @@
             
             if (scannedCode !== "") {
               playBeep(); 
-              document.getElementById('actionMsg').innerHTML = `<span style='color:#f59e0b;'>Hardware Syncing ${scannedCode}... ⏳</span>`;
               processScannedBarcode(scannedCode);
-              
               this.value = ""; 
               this.focus(); 
             }
