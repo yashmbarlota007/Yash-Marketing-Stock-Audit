@@ -52,11 +52,11 @@
     <div id="actionMsg" class="status-msg">Camera off. Start scanner to begin.</div>
 
     <!-- HYBRID MODE: HARDWARE SCANNER INPUT -->
-    <div style="margin-bottom: 15px; text-align: center;">
+    <div style="margin-top: 15px; margin-bottom: 15px; text-align: center;">
       <label style="font-size: 12px; font-weight: bold; color: #64748b;">Hardware Scanner Ready</label>
       <input type="text" id="hardwareScannerInput" placeholder="Tap here to use Scanner Gun..." style="width: 100%; padding: 15px; border: 2px solid #10b981; border-radius: 8px; font-size: 18px; font-weight: bold; text-align: center; background: #ecfdf5; color: #047857;">
     </div>
-    
+
     <h3>Scanned Items (Live)</h3>
     <div class="scan-list" id="scanList">
       <div style="text-align:center; color:#64748b;">Waiting for first scan...</div>
@@ -68,7 +68,7 @@
   
   <script>
     // ==========================================
-    // 🔗 API CONNECTION (PASTE YOUR NEW WEB APP URL HERE)
+    // 🔗 API CONNECTION (UPDATE THIS TO YOUR LATEST GOOGLE SCRIPT URL)
     // ==========================================
     const API_URL = "https://script.google.com/macros/s/AKfycbyOXRMn9g6L3Vcy5JKbVYUUdR7svaz9gzDrbut2qk_7afP73Ks6AetA0fpCdunYAAoJQg/exec";
 
@@ -84,7 +84,6 @@
       try {
         const response = await fetch(API_URL, {
           method: 'POST',
-          // Using text/plain prevents strict CORS preflight issues with Google Apps Script
           headers: { 'Content-Type': 'text/plain;charset=utf-8' }, 
           body: JSON.stringify(payload),
           redirect: "follow"
@@ -112,6 +111,9 @@
         
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         fetchSchedule();
+        
+        // 🚀 Auto-lock the cursor into the hardware scanner box
+        lockScannerFocus();
       } else {
         document.getElementById('loginMsg').innerText = res.message;
       }
@@ -134,8 +136,8 @@
       setTimeout(() => oscillator.stop(), 150);
     }
 
+    // --- OPTIMIZED MOBILE CAMERA SCANNER ---
     function startLiveScanner() {
-      // Added a UI reminder for the staff directly on the screen
       document.getElementById('actionMsg').innerHTML = "<span style='color:#2563eb;'>Requesting Camera Permission... ⏳</span><br><small>Keep phone 5 inches away from box</small>";
 
       Html5Qrcode.getCameras().then(devices => {
@@ -146,8 +148,9 @@
           document.getElementById('stopScanBtn').classList.remove('hidden');
           document.getElementById('actionMsg').innerHTML = "<span style='color:#10b981;'>Camera Active. Keep 5 inches away to focus.</span>";
 
+          // Fixed configuration: 'advanced' removed to prevent crash, format filters added for speed
           html5QrCode.start(
-            { facingMode: "environment" }, // FIXED: Reverted to a single key to prevent the crash
+            { facingMode: "environment" }, 
             { 
               fps: 20, 
               qrbox: { width: 280, height: 100 }, 
@@ -175,7 +178,9 @@
       }).catch(err => {
         document.getElementById('actionMsg').innerHTML = `<span style="color:#ef4444;">❌ Permission Denied! Please allow camera access.</span>`;
       });
-    }    function stopLiveScanner() {
+    }
+
+    function stopLiveScanner() {
       if (html5QrCode) {
         html5QrCode.stop().then(() => {
           document.getElementById('startScanBtn').classList.remove('hidden');
@@ -201,44 +206,7 @@
         document.getElementById('actionMsg').innerHTML = `✅ Synced: <b style="color:#10b981">${res.itemName}</b>`;
       }
     }
-// ==========================================
-    // HYBRID MODE: HARDWARE SCANNER LISTENER
-    // ==========================================
-    document.addEventListener("DOMContentLoaded", () => {
-      const hwInput = document.getElementById('hardwareScannerInput');
-      
-      if(hwInput) {
-        hwInput.addEventListener('keypress', function (e) {
-          // Hardware scanners automatically send the 'Enter' key after typing the barcode
-          if (e.key === 'Enter') {
-            e.preventDefault(); // Stop the page from refreshing
-            
-            let scannedCode = this.value.trim();
-            
-            if (scannedCode !== "") {
-              playBeep(); // Audio feedback
-              
-              // Send the data to your existing backend system
-              document.getElementById('actionMsg').innerHTML = `<span style='color:#f59e0b;'>Hardware Syncing ${scannedCode}... ⏳</span>`;
-              processScannedBarcode(scannedCode);
-              
-              // Instantly clear the box for the next scan
-              this.value = ""; 
-              
-              // Keep the cursor locked in the box so staff doesn't have to tap it again
-              this.focus(); 
-            }
-          }
-        });
-      }
-    });
 
-    // Auto-focus the hardware scanner box as soon as the user logs in
-    function lockScannerFocus() {
-       setTimeout(() => {
-           document.getElementById('hardwareScannerInput').focus();
-       }, 500);
-    }
     function updateUIList() {
       const listDiv = document.getElementById('scanList');
       listDiv.innerHTML = "";
@@ -261,33 +229,61 @@
       document.getElementById('actionMsg').innerHTML = `<span style="color:#10b981;">${res.message}</span>`;
       if(res.success) setTimeout(() => { location.reload(); }, 3500); 
     }
+
+    // ==========================================
+    // HYBRID MODE: HARDWARE SCANNER LISTENER
+    // ==========================================
+    document.addEventListener("DOMContentLoaded", () => {
+      const hwInput = document.getElementById('hardwareScannerInput');
+      
+      if(hwInput) {
+        hwInput.addEventListener('keypress', function (e) {
+          if (e.key === 'Enter') {
+            e.preventDefault(); 
+            
+            let scannedCode = this.value.trim();
+            
+            if (scannedCode !== "") {
+              playBeep(); 
+              document.getElementById('actionMsg').innerHTML = `<span style='color:#f59e0b;'>Hardware Syncing ${scannedCode}... ⏳</span>`;
+              processScannedBarcode(scannedCode);
+              
+              this.value = ""; 
+              this.focus(); 
+            }
+          }
+        });
+      }
+    });
+
+    function lockScannerFocus() {
+       setTimeout(() => {
+           const hwInput = document.getElementById('hardwareScannerInput');
+           if (hwInput) hwInput.focus();
+       }, 500);
+    }
+
     // ==========================================
     // AUTO-LOGIN (SSO) RECEIVER ENGINE
     // ==========================================
     window.onload = function() {
-      // 1. Check if Master App sent credentials in the URL
       const urlParams = new URLSearchParams(window.location.search);
       const ssoId = urlParams.get('empId');
       const ssoPass = urlParams.get('pass');
 
       if (ssoId && ssoPass) {
-        // 2. Safely auto-fill the input boxes (Checking common ID names)
-        
-        // Employee ID field check
         if (document.getElementById('empId')) {
           document.getElementById('empId').value = ssoId;
         } else if (document.getElementById('username')) {
           document.getElementById('username').value = ssoId;
         }
 
-        // Password field check
         if (document.getElementById('empPass')) {
           document.getElementById('empPass').value = ssoPass;
         } else if (document.getElementById('password')) {
           document.getElementById('password').value = ssoPass;
         }
 
-        // 3. Automatically trigger the login function
         if (typeof doLogin === 'function') {
           doLogin();
         } else if (typeof login === 'function') {
@@ -296,7 +292,6 @@
           executeLogin();
         }
       } 
-      // 4. Fallback: If opened directly (not from Master App), check local storage
       else {
         const cachedId = localStorage.getItem('ym_cached_id');
         const cachedPass = localStorage.getItem('ym_cached_pass');
