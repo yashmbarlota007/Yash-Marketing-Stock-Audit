@@ -241,36 +241,39 @@
       if(res.success) setTimeout(() => { location.reload(); }, 3500); 
     }
 
-    // ==========================================
-    // HYBRID MODE: HARDWARE SCANNER LISTENER
-    // ==========================================
-    document.addEventListener("DOMContentLoaded", () => {
-      const hwInput = document.getElementById('hardwareScannerInput');
-      
-      if(hwInput) {
-        hwInput.addEventListener('keypress', function (e) {
-          if (e.key === 'Enter') {
-            e.preventDefault(); 
-            
-            let scannedCode = this.value.trim();
-            
-            if (scannedCode !== "") {
-              playBeep(); 
-              processScannedBarcode(scannedCode);
-              this.value = ""; 
-              this.focus(); 
-            }
-          }
-        });
+// ==========================================
+// HYBRID MODE: HARDWARE SCANNER LISTENER
+// ==========================================
+document.addEventListener("DOMContentLoaded", () => {
+  const hwInput = document.getElementById('hardwareScannerInput');
+  
+  if(hwInput) {
+    hwInput.addEventListener('keypress', function (e) {
+      if (e.key === 'Enter') {
+        e.preventDefault(); 
+        
+        let scannedCode = this.value.trim();
+        let currentTime = new Date().getTime();
+        
+        // 🚀 FIX: Prevent rapid-fire duplicate scans (1.5-second cooldown)
+        if (scannedCode === lastScannedText && (currentTime - lastScanTime) < 1500) {
+          this.value = ""; // Clear input
+          return; // Ignore the duplicate scan
+        }
+        
+        if (scannedCode !== "") {
+          lastScannedText = scannedCode; 
+          lastScanTime = currentTime;
+          
+          playBeep(); 
+          processScannedBarcode(scannedCode);
+          this.value = ""; 
+          this.focus(); 
+        }
       }
     });
-
-    function lockScannerFocus() {
-       setTimeout(() => {
-           const hwInput = document.getElementById('hardwareScannerInput');
-           if (hwInput) hwInput.focus();
-       }, 500);
-    }
+  }
+});
 
     // ==========================================
     // AUTO-LOGIN (SSO) RECEIVER ENGINE
